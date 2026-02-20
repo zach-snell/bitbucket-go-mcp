@@ -1,0 +1,30 @@
+[tools]
+go = "1.24"
+
+[tasks.build]
+description = "Build the bitbucket-mcp binary"
+run = "CGO_ENABLED=0 go build -ldflags='-s -w' -o bin/bitbucket-mcp ./cmd/server"
+
+[tasks.dev]
+description = "Build and run in dev mode"
+run = "go run ./cmd/server"
+
+[tasks.lint]
+description = "Run linters"
+run = "golangci-lint run ./..."
+
+[tasks.test]
+description = "Run tests"
+run = "go test -race -count=1 ./..."
+
+[tasks.fmt]
+description = "Format code"
+run = "gofumpt -w ."
+
+[tasks.check]
+description = "Run all checks"
+depends = ["fmt", "lint", "test"]
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "rm -rf bin/"

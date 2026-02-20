@@ -1,0 +1,28 @@
+version: "2"
+
+linters:
+  enable:
+    - staticcheck
+    - govet
+    - errcheck
+    - gosec
+    - revive
+    - ineffassign
+    - unused
+    - gocritic
+    - gofumpt
+    - misspell
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        disabled: true
+  gosec:
+    excludes:
+      - G304
+      - G107
+
+issues:
+  exclude-dirs:
+    - vendor
