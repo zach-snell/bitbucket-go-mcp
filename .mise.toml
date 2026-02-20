@@ -17,6 +17,10 @@ run = "golangci-lint run ./..."
 description = "Run tests"
 run = "go test -race -count=1 ./..."
 
+[tasks.install]
+description = "Build and install bitbucket-mcp to ~/.local/bin"
+run = "./install.sh"
+
 [tasks.fmt]
 description = "Format code"
 run = "gofumpt -w ."

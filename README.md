@@ -13,12 +13,14 @@ A Model Context Protocol (MCP) server written in Go that provides programmatic i
 ### From Source
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/bitbucket-go-mcp.git
+git clone https://github.com/zach-snell/bitbucket-go-mcp.git
 cd bitbucket-go-mcp
 
-# Build the executable
-go build -o bitbucket-mcp ./cmd/server
+# Run the install script (builds and moves to ~/.local/bin)
+./install.sh
 ```
+
+Ensure `~/.local/bin` is added to your system `$PATH` for the executable to be universally available.
 
 ### From GitHub Releases
 Download the appropriate binary for your system (Linux, macOS, Windows) from the [Releases](https://github.com/your-username/bitbucket-go-mcp/releases) page.
