@@ -25,6 +25,9 @@ Download the appropriate binary for your system (Linux, macOS, Windows) from the
 
 ## Configuration & Usage
 
+The server supports two protocols: Stdio (default) and the official Streamable Transport API over HTTP.
+
+### Stdio Transport (Default)
 If you intend to use this with an MCP client (such as Claude Desktop or Cursor), add it to your client's configuration file as a local command:
 
 ```json
@@ -39,6 +42,13 @@ If you intend to use this with an MCP client (such as Claude Desktop or Cursor),
     }
   }
 }
+```
+
+### Streamable Transport (HTTP)
+You can run the server as a long-lived HTTP process serving the Streamable Transport API (which uses Server-Sent Events underneath). This is useful for remote network clients.
+
+```bash
+bitbucket-mcp --port 8080
 ```
 
 ### Environment Variables

@@ -5,166 +5,167 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+type ListBranchesArgs struct {
+	Workspace string `json:"workspace" jsonschema:"Workspace slug"`
+	RepoSlug  string `json:"repo_slug" jsonschema:"Repository slug"`
+	Pagelen   int    `json:"pagelen,omitempty" jsonschema:"Results per page"`
+	Page      int    `json:"page,omitempty" jsonschema:"Page number"`
+	Query     string `json:"query,omitempty" jsonschema:"Filter query"`
+	Sort      string `json:"sort,omitempty" jsonschema:"Sort field"`
+}
+
 // ListBranchesHandler lists branches in a repository.
-func (c *Client) ListBranchesHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	workspace, err := req.RequireString("workspace")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	repoSlug, err := req.RequireString("repo_slug")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+func (c *Client) ListBranchesHandler(ctx context.Context, req *mcp.CallToolRequest, args ListBranchesArgs) (*mcp.CallToolResult, any, error) {
+	if args.Workspace == "" || args.RepoSlug == "" {
+		return ToolResultError("workspace and repo_slug are required"), nil, nil
 	}
 
-	pagelen := req.GetInt("pagelen", 25)
-	page := req.GetInt("page", 1)
-	query := req.GetString("query", "")
-	sort := req.GetString("sort", "")
+	pagelen := args.Pagelen
+	if pagelen == 0 {
+		pagelen = 25
+	}
+	page := args.Page
+	if page == 0 {
+		page = 1
+	}
 
 	path := fmt.Sprintf("/repositories/%s/%s/refs/branches?pagelen=%d&page=%d",
-		QueryEscape(workspace), QueryEscape(repoSlug), pagelen, page)
-	if query != "" {
-		path += "&q=" + QueryEscape(query)
+		QueryEscape(args.Workspace), QueryEscape(args.RepoSlug), pagelen, page)
+	if args.Query != "" {
+		path += "&q=" + QueryEscape(args.Query)
 	}
-	if sort != "" {
-		path += "&sort=" + QueryEscape(sort)
+	if args.Sort != "" {
+		path += "&sort=" + QueryEscape(args.Sort)
 	}
 
 	result, err := GetPaginated[Branch](c, path)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to list branches: %v", err)), nil
+		return ToolResultError(fmt.Sprintf("failed to list branches: %v", err)), nil, nil
 	}
 
 	data, _ := json.MarshalIndent(result, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
+	return ToolResultText(string(data)), nil, nil
+}
+
+type CreateBranchArgs struct {
+	Workspace string `json:"workspace" jsonschema:"Workspace slug"`
+	RepoSlug  string `json:"repo_slug" jsonschema:"Repository slug"`
+	Name      string `json:"name" jsonschema:"Branch name"`
+	Target    string `json:"target" jsonschema:"Target commit hash to branch from"`
 }
 
 // CreateBranchHandler creates a new branch from a commit hash.
-func (c *Client) CreateBranchHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	workspace, err := req.RequireString("workspace")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	repoSlug, err := req.RequireString("repo_slug")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	name, err := req.RequireString("name")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	target, err := req.RequireString("target")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+func (c *Client) CreateBranchHandler(ctx context.Context, req *mcp.CallToolRequest, args CreateBranchArgs) (*mcp.CallToolResult, any, error) {
+	if args.Workspace == "" || args.RepoSlug == "" || args.Name == "" || args.Target == "" {
+		return ToolResultError("workspace, repo_slug, name, and target are required"), nil, nil
 	}
 
 	body := CreateBranchRequest{
-		Name:   name,
-		Target: map[string]string{"hash": target},
+		Name:   args.Name,
+		Target: map[string]string{"hash": args.Target},
 	}
 
 	respData, err := c.Post(fmt.Sprintf("/repositories/%s/%s/refs/branches",
-		QueryEscape(workspace), QueryEscape(repoSlug)), body)
+		QueryEscape(args.Workspace), QueryEscape(args.RepoSlug)), body)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to create branch: %v", err)), nil
+		return ToolResultError(fmt.Sprintf("failed to create branch: %v", err)), nil, nil
 	}
 
 	var branch Branch
 	if err := json.Unmarshal(respData, &branch); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to parse response: %v", err)), nil
+		return ToolResultError(fmt.Sprintf("failed to parse response: %v", err)), nil, nil
 	}
 
 	data, _ := json.MarshalIndent(branch, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
+	return ToolResultText(string(data)), nil, nil
+}
+
+type DeleteBranchArgs struct {
+	Workspace string `json:"workspace" jsonschema:"Workspace slug"`
+	RepoSlug  string `json:"repo_slug" jsonschema:"Repository slug"`
+	Name      string `json:"name" jsonschema:"Branch name to delete"`
 }
 
 // DeleteBranchHandler deletes a branch.
-func (c *Client) DeleteBranchHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	workspace, err := req.RequireString("workspace")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	repoSlug, err := req.RequireString("repo_slug")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	name, err := req.RequireString("name")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+func (c *Client) DeleteBranchHandler(ctx context.Context, req *mcp.CallToolRequest, args DeleteBranchArgs) (*mcp.CallToolResult, any, error) {
+	if args.Workspace == "" || args.RepoSlug == "" || args.Name == "" {
+		return ToolResultError("workspace, repo_slug, and name are required"), nil, nil
 	}
 
 	if err := c.Delete(fmt.Sprintf("/repositories/%s/%s/refs/branches/%s",
-		QueryEscape(workspace), QueryEscape(repoSlug), QueryEscape(name))); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to delete branch: %v", err)), nil
+		QueryEscape(args.Workspace), QueryEscape(args.RepoSlug), QueryEscape(args.Name))); err != nil {
+		return ToolResultError(fmt.Sprintf("failed to delete branch: %v", err)), nil, nil
 	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("Branch '%s' deleted successfully", name)), nil
+	return ToolResultText(fmt.Sprintf("Branch '%s' deleted successfully", args.Name)), nil, nil
+}
+
+type ListTagsArgs struct {
+	Workspace string `json:"workspace" jsonschema:"Workspace slug"`
+	RepoSlug  string `json:"repo_slug" jsonschema:"Repository slug"`
+	Pagelen   int    `json:"pagelen,omitempty" jsonschema:"Results per page"`
+	Page      int    `json:"page,omitempty" jsonschema:"Page number"`
 }
 
 // ListTagsHandler lists tags in a repository.
-func (c *Client) ListTagsHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	workspace, err := req.RequireString("workspace")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	repoSlug, err := req.RequireString("repo_slug")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+func (c *Client) ListTagsHandler(ctx context.Context, req *mcp.CallToolRequest, args ListTagsArgs) (*mcp.CallToolResult, any, error) {
+	if args.Workspace == "" || args.RepoSlug == "" {
+		return ToolResultError("workspace and repo_slug are required"), nil, nil
 	}
 
-	pagelen := req.GetInt("pagelen", 25)
-	page := req.GetInt("page", 1)
+	pagelen := args.Pagelen
+	if pagelen == 0 {
+		pagelen = 25
+	}
+	page := args.Page
+	if page == 0 {
+		page = 1
+	}
 
 	path := fmt.Sprintf("/repositories/%s/%s/refs/tags?pagelen=%d&page=%d",
-		QueryEscape(workspace), QueryEscape(repoSlug), pagelen, page)
+		QueryEscape(args.Workspace), QueryEscape(args.RepoSlug), pagelen, page)
 
 	result, err := GetPaginated[Tag](c, path)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to list tags: %v", err)), nil
+		return ToolResultError(fmt.Sprintf("failed to list tags: %v", err)), nil, nil
 	}
 
 	data, _ := json.MarshalIndent(result, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
+	return ToolResultText(string(data)), nil, nil
+}
+
+type CreateTagArgs struct {
+	Workspace string `json:"workspace" jsonschema:"Workspace slug"`
+	RepoSlug  string `json:"repo_slug" jsonschema:"Repository slug"`
+	Name      string `json:"name" jsonschema:"Tag name"`
+	Target    string `json:"target" jsonschema:"Target commit hash"`
 }
 
 // CreateTagHandler creates a new tag.
-func (c *Client) CreateTagHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	workspace, err := req.RequireString("workspace")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	repoSlug, err := req.RequireString("repo_slug")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	name, err := req.RequireString("name")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
-	}
-	target, err := req.RequireString("target")
-	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+func (c *Client) CreateTagHandler(ctx context.Context, req *mcp.CallToolRequest, args CreateTagArgs) (*mcp.CallToolResult, any, error) {
+	if args.Workspace == "" || args.RepoSlug == "" || args.Name == "" || args.Target == "" {
+		return ToolResultError("workspace, repo_slug, name, and target are required"), nil, nil
 	}
 
 	body := map[string]interface{}{
-		"name":   name,
-		"target": map[string]string{"hash": target},
+		"name":   args.Name,
+		"target": map[string]string{"hash": args.Target},
 	}
 
 	respData, err := c.Post(fmt.Sprintf("/repositories/%s/%s/refs/tags",
-		QueryEscape(workspace), QueryEscape(repoSlug)), body)
+		QueryEscape(args.Workspace), QueryEscape(args.RepoSlug)), body)
 	if err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to create tag: %v", err)), nil
+		return ToolResultError(fmt.Sprintf("failed to create tag: %v", err)), nil, nil
 	}
 
 	var tag Tag
 	if err := json.Unmarshal(respData, &tag); err != nil {
-		return mcp.NewToolResultError(fmt.Sprintf("failed to parse response: %v", err)), nil
+		return ToolResultError(fmt.Sprintf("failed to parse response: %v", err)), nil, nil
 	}
 
 	data, _ := json.MarshalIndent(tag, "", "  ")
-	return mcp.NewToolResultText(string(data)), nil
+	return ToolResultText(string(data)), nil, nil
 }

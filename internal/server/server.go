@@ -1,391 +1,272 @@
 package server
 
 import (
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"context"
+	"os"
+	"strings"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/zach-snell/bitbucket-go-mcp/internal/bitbucket"
 )
 
 // New creates and configures the Bitbucket MCP server with all tools registered.
-func New(username, password, token string) *server.MCPServer {
+func New(username, password, token string) *mcp.Server {
 	client := bitbucket.NewClient(username, password, token)
 	return newServer(client)
 }
 
 // NewFromOAuth creates the MCP server from stored OAuth credentials with auto-refresh.
-func NewFromOAuth(creds *bitbucket.Credentials) *server.MCPServer {
+func NewFromOAuth(creds *bitbucket.Credentials) *mcp.Server {
 	client := bitbucket.NewClientFromOAuth(creds)
 	return newServer(client)
 }
 
-func newServer(client *bitbucket.Client) *server.MCPServer {
-	s := server.NewMCPServer(
-		"bitbucket-mcp",
-		"0.1.0",
-		server.WithToolCapabilities(false),
-		server.WithRecovery(),
-		server.WithInstructions("Bitbucket Cloud MCP server. Provides tools for interacting with Bitbucket repositories, pull requests, branches, commits, pipelines, and more via the Bitbucket Cloud REST API v2.0."),
+func newServer(client *bitbucket.Client) *mcp.Server {
+	s := mcp.NewServer(
+		&mcp.Implementation{
+			Name:    "bitbucket-mcp",
+			Version: "1.0.0",
+		},
+		nil,
 	)
 
 	registerTools(s, client)
 	return s
 }
 
-func registerTools(s *server.MCPServer, c *bitbucket.Client) {
-	// ─── Workspaces ──────────────────────────────────────────────────
-	s.AddTool(mcp.NewTool("list_workspaces",
-		mcp.WithDescription("List Bitbucket workspaces accessible to the authenticated user"),
-		mcp.WithNumber("pagelen", mcp.Description("Number of results per page (default 25, max 100)")),
-		mcp.WithNumber("page", mcp.Description("Page number (1-based)")),
-	), c.ListWorkspacesHandler)
+// addTool is a helper function to conditionally register a generic tool handler
+func addTool[In any](s *mcp.Server, disabled map[string]bool, tool mcp.Tool, handler func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, any, error)) {
+	if disabled[tool.Name] {
+		return
+	}
+	mcp.AddTool(s, &tool, handler)
+}
 
-	s.AddTool(mcp.NewTool("get_workspace",
-		mcp.WithDescription("Get details for a Bitbucket workspace"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug or UUID")),
-	), c.GetWorkspaceHandler)
+func registerTools(s *mcp.Server, c *bitbucket.Client) {
+	disabledToolsEnv := os.Getenv("BITBUCKET_DISABLED_TOOLS")
+	disabled := make(map[string]bool)
+	if disabledToolsEnv != "" {
+		for _, t := range strings.Split(disabledToolsEnv, ",") {
+			disabled[strings.TrimSpace(t)] = true
+		}
+	}
+
+	// ─── Workspaces ──────────────────────────────────────────────────
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_workspaces",
+		Description: "List Bitbucket workspaces accessible to the authenticated user",
+	}, c.ListWorkspacesHandler)
+
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_workspace",
+		Description: "Get details for a Bitbucket workspace",
+	}, c.GetWorkspaceHandler)
 
 	// ─── Repositories ────────────────────────────────────────────────
-	s.AddTool(mcp.NewTool("list_repositories",
-		mcp.WithDescription("List repositories in a Bitbucket workspace"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page (default 25)")),
-		mcp.WithNumber("page", mcp.Description("Page number")),
-		mcp.WithString("query", mcp.Description("Bitbucket query filter (e.g. name~\"myrepo\")")),
-		mcp.WithString("role", mcp.Description("Filter by role: owner, admin, contributor, member")),
-		mcp.WithString("sort", mcp.Description("Sort field (e.g. -updated_on)")),
-	), c.ListRepositoriesHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_repositories",
+		Description: "List repositories in a Bitbucket workspace",
+	}, c.ListRepositoriesHandler)
 
-	s.AddTool(mcp.NewTool("get_repository",
-		mcp.WithDescription("Get details for a specific repository"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-	), c.GetRepositoryHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_repository",
+		Description: "Get details for a specific repository",
+	}, c.GetRepositoryHandler)
 
-	s.AddTool(mcp.NewTool("create_repository",
-		mcp.WithDescription("Create a new repository in a workspace"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug (URL-friendly name)")),
-		mcp.WithString("description", mcp.Description("Repository description")),
-		mcp.WithString("language", mcp.Description("Primary programming language")),
-		mcp.WithBoolean("is_private", mcp.Description("Whether the repo is private (default true)")),
-		mcp.WithString("project_key", mcp.Description("Project key to assign the repo to")),
-	), c.CreateRepositoryHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "create_repository",
+		Description: "Create a new repository in a workspace",
+	}, c.CreateRepositoryHandler)
 
-	s.AddTool(mcp.NewTool("delete_repository",
-		mcp.WithDescription("Delete a repository (DESTRUCTIVE - cannot be undone)"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-	), c.DeleteRepositoryHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "delete_repository",
+		Description: "Delete a repository (DESTRUCTIVE - cannot be undone)",
+	}, c.DeleteRepositoryHandler)
 
 	// ─── Branches ────────────────────────────────────────────────────
-	s.AddTool(mcp.NewTool("list_branches",
-		mcp.WithDescription("List branches in a repository"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page")),
-		mcp.WithNumber("page", mcp.Description("Page number")),
-		mcp.WithString("query", mcp.Description("Filter query")),
-		mcp.WithString("sort", mcp.Description("Sort field")),
-	), c.ListBranchesHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_branches",
+		Description: "List branches in a repository",
+	}, c.ListBranchesHandler)
 
-	s.AddTool(mcp.NewTool("create_branch",
-		mcp.WithDescription("Create a new branch from a commit hash"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("name", mcp.Required(), mcp.Description("Branch name")),
-		mcp.WithString("target", mcp.Required(), mcp.Description("Target commit hash to branch from")),
-	), c.CreateBranchHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "create_branch",
+		Description: "Create a new branch from a commit hash",
+	}, c.CreateBranchHandler)
 
-	s.AddTool(mcp.NewTool("delete_branch",
-		mcp.WithDescription("Delete a branch"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("name", mcp.Required(), mcp.Description("Branch name to delete")),
-	), c.DeleteBranchHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "delete_branch",
+		Description: "Delete a branch",
+	}, c.DeleteBranchHandler)
 
 	// ─── Tags ────────────────────────────────────────────────────────
-	s.AddTool(mcp.NewTool("list_tags",
-		mcp.WithDescription("List tags in a repository"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page")),
-		mcp.WithNumber("page", mcp.Description("Page number")),
-	), c.ListTagsHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_tags",
+		Description: "List tags in a repository",
+	}, c.ListTagsHandler)
 
-	s.AddTool(mcp.NewTool("create_tag",
-		mcp.WithDescription("Create a new tag at a specific commit"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("name", mcp.Required(), mcp.Description("Tag name")),
-		mcp.WithString("target", mcp.Required(), mcp.Description("Target commit hash")),
-	), c.CreateTagHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "create_tag",
+		Description: "Create a new tag at a specific commit",
+	}, c.CreateTagHandler)
 
 	// ─── Commits ─────────────────────────────────────────────────────
-	s.AddTool(mcp.NewTool("list_commits",
-		mcp.WithDescription("List commits in a repository, optionally filtered by branch/revision"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("revision", mcp.Description("Branch name or commit hash to list commits for")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page")),
-		mcp.WithNumber("page", mcp.Description("Page number")),
-		mcp.WithString("include", mcp.Description("Include commits reachable from this ref")),
-		mcp.WithString("exclude", mcp.Description("Exclude commits reachable from this ref")),
-		mcp.WithString("path", mcp.Description("Filter commits that touch this file path")),
-	), c.ListCommitsHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_commits",
+		Description: "List commits in a repository, optionally filtered by branch/revision",
+	}, c.ListCommitsHandler)
 
-	s.AddTool(mcp.NewTool("get_commit",
-		mcp.WithDescription("Get details for a single commit"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("commit", mcp.Required(), mcp.Description("Commit hash")),
-	), c.GetCommitHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_commit",
+		Description: "Get details for a single commit",
+	}, c.GetCommitHandler)
 
-	s.AddTool(mcp.NewTool("get_diff",
-		mcp.WithDescription("Get diff for a commit or between two revisions (e.g. 'hash1..hash2')"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("spec", mcp.Required(), mcp.Description("Diff spec: single commit hash or 'hash1..hash2'")),
-		mcp.WithString("path", mcp.Description("Filter diff to this file path")),
-	), c.GetDiffHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_diff",
+		Description: "Get diff for a commit or between two revisions (e.g. 'hash1..hash2')",
+	}, c.GetDiffHandler)
 
-	s.AddTool(mcp.NewTool("get_diffstat",
-		mcp.WithDescription("Get diff statistics (files changed, lines added/removed)"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("spec", mcp.Required(), mcp.Description("Diff spec: single commit hash or 'hash1..hash2'")),
-	), c.GetDiffStatHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_diffstat",
+		Description: "Get diff statistics (files changed, lines added/removed)",
+	}, c.GetDiffStatHandler)
 
 	// ─── Pull Requests ───────────────────────────────────────────────
-	s.AddTool(mcp.NewTool("list_pull_requests",
-		mcp.WithDescription("List pull requests for a repository"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("state", mcp.Description("PR state filter: OPEN, MERGED, DECLINED, SUPERSEDED (default OPEN)")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page")),
-		mcp.WithNumber("page", mcp.Description("Page number")),
-		mcp.WithString("query", mcp.Description("Bitbucket query filter")),
-	), c.ListPullRequestsHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_pull_requests",
+		Description: "List pull requests for a repository",
+	}, c.ListPullRequestsHandler)
 
-	s.AddTool(mcp.NewTool("get_pull_request",
-		mcp.WithDescription("Get details for a specific pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-	), c.GetPullRequestHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_pull_request",
+		Description: "Get details for a specific pull request",
+	}, c.GetPullRequestHandler)
 
-	//nolint:dupl // duplicate struct fields for similar request
-	s.AddTool(mcp.NewTool("create_pull_request",
-		mcp.WithDescription("Create a new pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("title", mcp.Required(), mcp.Description("PR title")),
-		mcp.WithString("source_branch", mcp.Required(), mcp.Description("Source branch name")),
-		mcp.WithString("destination_branch", mcp.Description("Destination branch (defaults to repo main branch)")),
-		mcp.WithString("description", mcp.Description("PR description (markdown supported)")),
-		mcp.WithBoolean("close_source_branch", mcp.Description("Close source branch after merge")),
-		mcp.WithBoolean("draft", mcp.Description("Create as draft PR")),
-	), c.CreatePullRequestHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "create_pull_request",
+		Description: "Create a new pull request",
+	}, c.CreatePullRequestHandler)
 
-	s.AddTool(mcp.NewTool("update_pull_request",
-		mcp.WithDescription("Update a pull request's title or description"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-		mcp.WithString("title", mcp.Description("New title")),
-		mcp.WithString("description", mcp.Description("New description")),
-	), c.UpdatePullRequestHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "update_pull_request",
+		Description: "Update a pull request's title or description",
+	}, c.UpdatePullRequestHandler)
 
-	s.AddTool(mcp.NewTool("merge_pull_request",
-		mcp.WithDescription("Merge a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-		mcp.WithString("merge_strategy", mcp.Description("Merge strategy: merge_commit, squash, fast_forward")),
-		mcp.WithString("message", mcp.Description("Merge commit message")),
-		mcp.WithBoolean("close_source_branch", mcp.Description("Close source branch after merge")),
-	), c.MergePullRequestHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "merge_pull_request",
+		Description: "Merge a pull request",
+	}, c.MergePullRequestHandler)
 
-	s.AddTool(mcp.NewTool("approve_pull_request",
-		mcp.WithDescription("Approve a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-	), c.ApprovePullRequestHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "approve_pull_request",
+		Description: "Approve a pull request",
+	}, c.ApprovePullRequestHandler)
 
-	s.AddTool(mcp.NewTool("unapprove_pull_request",
-		mcp.WithDescription("Remove approval from a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-	), c.UnapprovePullRequestHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "unapprove_pull_request",
+		Description: "Remove approval from a pull request",
+	}, c.UnapprovePullRequestHandler)
 
-	s.AddTool(mcp.NewTool("decline_pull_request",
-		mcp.WithDescription("Decline a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-	), c.DeclinePullRequestHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "decline_pull_request",
+		Description: "Decline a pull request",
+	}, c.DeclinePullRequestHandler)
 
-	s.AddTool(mcp.NewTool("get_pr_diff",
-		mcp.WithDescription("Get the diff for a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-	), c.GetPRDiffHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_pr_diff",
+		Description: "Get the diff for a pull request",
+	}, c.GetPRDiffHandler)
 
-	s.AddTool(mcp.NewTool("get_pr_diffstat",
-		mcp.WithDescription("Get diff statistics for a pull request (files changed, lines added/removed)"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-	), c.GetPRDiffStatHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_pr_diffstat",
+		Description: "Get diff statistics for a pull request (files changed, lines added/removed)",
+	}, c.GetPRDiffStatHandler)
 
-	s.AddTool(mcp.NewTool("list_pr_commits",
-		mcp.WithDescription("List commits in a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-	), c.ListPRCommitsHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_pr_commits",
+		Description: "List commits in a pull request",
+	}, c.ListPRCommitsHandler)
 
 	// ─── PR Comments ─────────────────────────────────────────────────
-	s.AddTool(mcp.NewTool("list_pr_comments",
-		mcp.WithDescription("List comments on a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page")),
-		mcp.WithNumber("page", mcp.Description("Page number")),
-	), c.ListPRCommentsHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_pr_comments",
+		Description: "List comments on a pull request",
+	}, c.ListPRCommentsHandler)
 
-	//nolint:dupl // duplicate struct fields for similar request
-	s.AddTool(mcp.NewTool("create_pr_comment",
-		mcp.WithDescription("Add a comment to a pull request. Supports inline comments on specific files/lines and replies to existing comments."),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-		mcp.WithString("content", mcp.Required(), mcp.Description("Comment body (markdown supported)")),
-		mcp.WithString("file_path", mcp.Description("File path for inline comment")),
-		mcp.WithNumber("line_to", mcp.Description("Line number in new file for inline comment")),
-		mcp.WithNumber("line_from", mcp.Description("Line number in old file for inline comment")),
-		mcp.WithNumber("parent_id", mcp.Description("Parent comment ID to reply to")),
-	), c.CreatePRCommentHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "create_pr_comment",
+		Description: "Add a comment to a pull request. Supports inline comments on specific files/lines and replies to existing comments.",
+	}, c.CreatePRCommentHandler)
 
-	s.AddTool(mcp.NewTool("update_pr_comment",
-		mcp.WithDescription("Update an existing comment on a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-		mcp.WithNumber("comment_id", mcp.Required(), mcp.Description("Comment ID")),
-		mcp.WithString("content", mcp.Required(), mcp.Description("New comment body")),
-	), c.UpdatePRCommentHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "update_pr_comment",
+		Description: "Update an existing comment on a pull request",
+	}, c.UpdatePRCommentHandler)
 
-	s.AddTool(mcp.NewTool("delete_pr_comment",
-		mcp.WithDescription("Delete a comment from a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-		mcp.WithNumber("comment_id", mcp.Required(), mcp.Description("Comment ID")),
-	), c.DeletePRCommentHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "delete_pr_comment",
+		Description: "Delete a comment from a pull request",
+	}, c.DeletePRCommentHandler)
 
-	s.AddTool(mcp.NewTool("resolve_pr_comment",
-		mcp.WithDescription("Resolve a comment thread on a pull request"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-		mcp.WithNumber("comment_id", mcp.Required(), mcp.Description("Comment ID to resolve")),
-	), c.ResolvePRCommentHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "resolve_pr_comment",
+		Description: "Resolve a comment thread on a pull request",
+	}, c.ResolvePRCommentHandler)
 
-	s.AddTool(mcp.NewTool("unresolve_pr_comment",
-		mcp.WithDescription("Reopen a resolved comment thread"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
-		mcp.WithNumber("comment_id", mcp.Required(), mcp.Description("Comment ID to reopen")),
-	), c.UnresolvePRCommentHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "unresolve_pr_comment",
+		Description: "Reopen a resolved comment thread",
+	}, c.UnresolvePRCommentHandler)
 
 	// ─── Source / File Browsing ──────────────────────────────────────
-	s.AddTool(mcp.NewTool("get_file_content",
-		mcp.WithDescription("Read a file's content from the repository at a given revision"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("path", mcp.Required(), mcp.Description("File path in the repository")),
-		mcp.WithString("ref", mcp.Description("Branch name, tag, or commit hash (defaults to HEAD)")),
-	), c.GetFileContentHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_file_content",
+		Description: "Read a file's content from the repository at a given revision",
+	}, c.GetFileContentHandler)
 
-	s.AddTool(mcp.NewTool("list_directory",
-		mcp.WithDescription("List files and directories at a path in the repository"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("path", mcp.Description("Directory path (empty for root)")),
-		mcp.WithString("ref", mcp.Description("Branch name, tag, or commit hash (defaults to HEAD)")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page (default 100)")),
-		mcp.WithNumber("max_depth", mcp.Description("Max directory depth to recurse (default 1)")),
-	), c.ListDirectoryHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_directory",
+		Description: "List files and directories at a path in the repository",
+	}, c.ListDirectoryHandler)
 
-	s.AddTool(mcp.NewTool("get_file_history",
-		mcp.WithDescription("Get the commit history for a specific file"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("path", mcp.Required(), mcp.Description("File path")),
-		mcp.WithString("ref", mcp.Description("Branch/tag/commit to start from (defaults to HEAD)")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page")),
-	), c.GetFileHistoryHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_file_history",
+		Description: "Get the commit history for a specific file",
+	}, c.GetFileHistoryHandler)
 
-	s.AddTool(mcp.NewTool("search_code",
-		mcp.WithDescription("Search for code in a repository"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("query", mcp.Required(), mcp.Description("Search query")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page")),
-		mcp.WithNumber("page", mcp.Description("Page number")),
-	), c.SearchCodeHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "search_code",
+		Description: "Search for code in a repository",
+	}, c.SearchCodeHandler)
 
 	// ─── Pipelines ───────────────────────────────────────────────────
-	s.AddTool(mcp.NewTool("list_pipelines",
-		mcp.WithDescription("List pipeline runs for a repository"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithNumber("pagelen", mcp.Description("Results per page")),
-		mcp.WithNumber("page", mcp.Description("Page number")),
-		mcp.WithString("sort", mcp.Description("Sort field (default -created_on)")),
-		mcp.WithString("status", mcp.Description("Filter by status")),
-	), c.ListPipelinesHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_pipelines",
+		Description: "List pipeline runs for a repository",
+	}, c.ListPipelinesHandler)
 
-	s.AddTool(mcp.NewTool("get_pipeline",
-		mcp.WithDescription("Get details for a specific pipeline run"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("pipeline_uuid", mcp.Required(), mcp.Description("Pipeline UUID")),
-	), c.GetPipelineHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_pipeline",
+		Description: "Get details for a specific pipeline run",
+	}, c.GetPipelineHandler)
 
-	s.AddTool(mcp.NewTool("trigger_pipeline",
-		mcp.WithDescription("Trigger a new pipeline run on a branch"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("ref_name", mcp.Required(), mcp.Description("Branch or tag name to run pipeline on")),
-		mcp.WithString("ref_type", mcp.Description("Reference type: branch or tag (default branch)")),
-		mcp.WithString("pattern", mcp.Description("Custom pipeline pattern name to trigger")),
-	), c.TriggerPipelineHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "trigger_pipeline",
+		Description: "Trigger a new pipeline run on a branch",
+	}, c.TriggerPipelineHandler)
 
-	s.AddTool(mcp.NewTool("stop_pipeline",
-		mcp.WithDescription("Stop a running pipeline"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("pipeline_uuid", mcp.Required(), mcp.Description("Pipeline UUID to stop")),
-	), c.StopPipelineHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "stop_pipeline",
+		Description: "Stop a running pipeline",
+	}, c.StopPipelineHandler)
 
-	s.AddTool(mcp.NewTool("list_pipeline_steps",
-		mcp.WithDescription("List steps in a pipeline run"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("pipeline_uuid", mcp.Required(), mcp.Description("Pipeline UUID")),
-	), c.ListPipelineStepsHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "list_pipeline_steps",
+		Description: "List steps in a pipeline run",
+	}, c.ListPipelineStepsHandler)
 
-	s.AddTool(mcp.NewTool("get_pipeline_step_log",
-		mcp.WithDescription("Get the log output for a pipeline step"),
-		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
-		mcp.WithString("repo_slug", mcp.Required(), mcp.Description("Repository slug")),
-		mcp.WithString("pipeline_uuid", mcp.Required(), mcp.Description("Pipeline UUID")),
-		mcp.WithString("step_uuid", mcp.Required(), mcp.Description("Step UUID")),
-	), c.GetPipelineStepLogHandler)
+	addTool(s, disabled, mcp.Tool{
+		Name:        "get_pipeline_step_log",
+		Description: "Get the log output for a pipeline step",
+	}, c.GetPipelineStepLogHandler)
 }
