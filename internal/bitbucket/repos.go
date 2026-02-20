@@ -23,13 +23,13 @@ func (c *Client) ListRepositoriesHandler(ctx context.Context, req mcp.CallToolRe
 
 	path := fmt.Sprintf("/repositories/%s?pagelen=%d&page=%d", QueryEscape(workspace), pagelen, page)
 	if query != "" {
-		path += "&q=" + query
+		path += "&q=" + QueryEscape(query)
 	}
 	if role != "" {
-		path += "&role=" + role
+		path += "&role=" + QueryEscape(role)
 	}
 	if sort != "" {
-		path += "&sort=" + sort
+		path += "&sort=" + QueryEscape(sort)
 	}
 
 	result, err := GetPaginated[Repository](c, path)

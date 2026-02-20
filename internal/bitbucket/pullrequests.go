@@ -27,7 +27,7 @@ func (c *Client) ListPullRequestsHandler(ctx context.Context, req mcp.CallToolRe
 	path := fmt.Sprintf("/repositories/%s/%s/pullrequests?state=%s&pagelen=%d&page=%d",
 		QueryEscape(workspace), QueryEscape(repoSlug), state, pagelen, page)
 	if query != "" {
-		path += "&q=" + query
+		path += "&q=" + QueryEscape(query)
 	}
 
 	result, err := GetPaginated[PullRequest](c, path)
@@ -134,8 +134,12 @@ func (c *Client) UpdatePullRequestHandler(ctx context.Context, req mcp.CallToolR
 	if title := req.GetString("title", ""); title != "" {
 		body["title"] = title
 	}
-	if desc := req.GetString("description", ""); desc != "" {
-		body["description"] = desc
+
+	// Check if description was explicitly provided in the request arguments
+	if desc, ok := req.GetArguments()["description"]; ok {
+		if descStr, ok := desc.(string); ok {
+			body["description"] = descStr
+		}
 	}
 
 	respData, err := c.Put(fmt.Sprintf("/repositories/%s/%s/pullrequests/%d",
@@ -191,6 +195,8 @@ func (c *Client) MergePullRequestHandler(ctx context.Context, req mcp.CallToolRe
 }
 
 // ApprovePullRequestHandler approves a pull request.
+//
+//nolint:dupl // boilerplate handlers share parameter extraction
 func (c *Client) ApprovePullRequestHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	workspace, err := req.RequireString("workspace")
 	if err != nil {
@@ -238,6 +244,8 @@ func (c *Client) UnapprovePullRequestHandler(ctx context.Context, req mcp.CallTo
 }
 
 // DeclinePullRequestHandler declines a pull request.
+//
+//nolint:dupl // boilerplate handlers share parameter extraction
 func (c *Client) DeclinePullRequestHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	workspace, err := req.RequireString("workspace")
 	if err != nil {

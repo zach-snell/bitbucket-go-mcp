@@ -36,13 +36,13 @@ func (c *Client) ListCommitsHandler(ctx context.Context, req mcp.CallToolRequest
 	}
 
 	if include != "" {
-		endpoint += "&include=" + include
+		endpoint += "&include=" + QueryEscape(include)
 	}
 	if exclude != "" {
-		endpoint += "&exclude=" + exclude
+		endpoint += "&exclude=" + QueryEscape(exclude)
 	}
 	if path != "" {
-		endpoint += "&path=" + path
+		endpoint += "&path=" + QueryEscape(path)
 	}
 
 	result, err := GetPaginated[Commit](c, endpoint)

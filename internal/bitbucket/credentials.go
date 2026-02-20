@@ -73,7 +73,7 @@ func SaveCredentials(creds *Credentials) error {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("creating config dir: %w", err)
 	}
 
@@ -82,7 +82,7 @@ func SaveCredentials(creds *Credentials) error {
 		return fmt.Errorf("marshaling credentials: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("writing credentials file: %w", err)
 	}
 

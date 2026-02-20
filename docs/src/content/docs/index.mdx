@@ -1,0 +1,36 @@
+---
+title: Bitbucket Go MCP Server
+description: Programmatic integration with Bitbucket workspaces and repositories via MCP.
+template: splash
+hero:
+  tagline: A Model Context Protocol server written in Go providing read and write capabilities for Bitbucket.
+  image:
+    file: ../../../assets/houston.webp
+  actions:
+    - text: Get Started
+      link: /bitbucket-go-mcp/getting-started/introduction/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/zach-snell/bitbucket-go-mcp
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Features
+
+<CardGrid stagger>
+	<Card title="Read Operations" icon="magnifier">
+		Query branches, commits, pull requests, diffstats, pipelines, and repositories across a workspace.
+	</Card>
+	<Card title="Write Operations" icon="pencil">
+		Create, merge, approve, and decline pull requests. Create, resolve, and delete PR comments.
+	</Card>
+	<Card title="Cross Platform" icon="laptop">
+		Pre-compiled binaries for macOS, Linux, and Windows ready to run via Claude Desktop or Cursor.
+	</Card>
+	<Card title="Secure Auth" icon="seti:lock">
+		Supports seamless OAuth 2.0 flow or declarative app password setups for CI pipelines.
+	</Card>
+</CardGrid>

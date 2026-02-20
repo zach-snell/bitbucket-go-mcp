@@ -24,11 +24,11 @@ func (c *Client) ListPipelinesHandler(ctx context.Context, req mcp.CallToolReque
 	sort := req.GetString("sort", "-created_on")
 
 	path := fmt.Sprintf("/repositories/%s/%s/pipelines?pagelen=%d&page=%d&sort=%s",
-		QueryEscape(workspace), QueryEscape(repoSlug), pagelen, page, sort)
+		QueryEscape(workspace), QueryEscape(repoSlug), pagelen, page, QueryEscape(sort))
 
 	status := req.GetString("status", "")
 	if status != "" {
-		path += "&status=" + status
+		path += "&status=" + QueryEscape(status)
 	}
 
 	result, err := GetPaginated[Pipeline](c, path)

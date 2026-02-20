@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	authURL  = "https://bitbucket.org/site/oauth2/authorize"
-	tokenURL = "https://bitbucket.org/site/oauth2/access_token"
+	authURL       = "https://bitbucket.org/site/oauth2/authorize"
+	tokenEndpoint = "https://bitbucket.org/site/oauth2/access_token" //nolint:gosec // Not a hardcoded credential, just an endpoint url
 )
 
 // RefreshOAuth uses the refresh token to get a new access token.
@@ -29,7 +29,7 @@ func RefreshOAuth(creds *Credentials) error {
 		"refresh_token": {creds.RefreshToken},
 	}
 
-	req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequest(http.MethodPost, tokenEndpoint, strings.NewReader(data.Encode()))
 	if err != nil {
 		return fmt.Errorf("creating refresh request: %w", err)
 	}
@@ -130,7 +130,10 @@ func OAuthLogin(clientID, clientSecret string) error {
 		codeCh <- code
 	})
 
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 3 * time.Second,
+	}
 	go func() {
 		if err := srv.Serve(listener); err != http.ErrServerClosed {
 			errCh <- err
@@ -149,14 +152,14 @@ func OAuthLogin(clientID, clientSecret string) error {
 	select {
 	case code = <-codeCh:
 	case err := <-errCh:
-		srv.Shutdown(context.Background())
+		_ = srv.Shutdown(context.Background())
 		return err
 	case <-time.After(5 * time.Minute):
-		srv.Shutdown(context.Background())
+		_ = srv.Shutdown(context.Background())
 		return fmt.Errorf("authentication timed out after 5 minutes")
 	}
 
-	srv.Shutdown(context.Background())
+	_ = srv.Shutdown(context.Background())
 
 	// Exchange code for tokens
 	fmt.Println("Exchanging code for tokens...")
@@ -166,7 +169,7 @@ func OAuthLogin(clientID, clientSecret string) error {
 		"code":       {code},
 	}
 
-	tokenReq, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(formData.Encode()))
+	tokenReq, err := http.NewRequest(http.MethodPost, tokenEndpoint, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return fmt.Errorf("creating token request: %w", err)
 	}
@@ -233,6 +236,6 @@ func openBrowser(url string) {
 		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
 	}
 	if cmd != nil {
-		cmd.Start()
+		_ = cmd.Start()
 	}
 }

@@ -1,0 +1,29 @@
+---
+title: Installation
+description: How to install bitbucket-go-mcp on your system.
+---
+
+Follow these instructions to download or build the `bitbucket-go-mcp` executable.
+
+## Pre-compiled Binaries (Recommended)
+
+1. Navigate to the [Releases](https://github.com/zach-snell/bitbucket-go-mcp/releases) page.
+2. Download the binary matching your operating system and CPU architecture. Example identifiers:
+   - macOS (Apple Silicon): `bitbucket-mcp-darwin-arm64`
+   - macOS (Intel): `bitbucket-mcp-darwin-amd64`
+   - Windows: `bitbucket-mcp-windows-amd64.exe`
+   - Linux: `bitbucket-mcp-linux-amd64`
+3. Mark it executable (macOS / Linux):
+   ```bash
+   chmod +x bitbucket-mcp*
+   ```
+
+## Build from Source
+
+Ensure you have [Go](https://go.dev/) 1.25+ installed.
+
+```bash
+git clone https://github.com/zach-snell/bitbucket-go-mcp.git
+cd bitbucket-go-mcp
+go build -o bitbucket-mcp ./cmd/server
+```

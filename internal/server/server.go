@@ -173,6 +173,7 @@ func registerTools(s *server.MCPServer, c *bitbucket.Client) {
 		mcp.WithNumber("pr_id", mcp.Required(), mcp.Description("Pull request ID")),
 	), c.GetPullRequestHandler)
 
+	//nolint:dupl // duplicate struct fields for similar request
 	s.AddTool(mcp.NewTool("create_pull_request",
 		mcp.WithDescription("Create a new pull request"),
 		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),
@@ -256,6 +257,7 @@ func registerTools(s *server.MCPServer, c *bitbucket.Client) {
 		mcp.WithNumber("page", mcp.Description("Page number")),
 	), c.ListPRCommentsHandler)
 
+	//nolint:dupl // duplicate struct fields for similar request
 	s.AddTool(mcp.NewTool("create_pr_comment",
 		mcp.WithDescription("Add a comment to a pull request. Supports inline comments on specific files/lines and replies to existing comments."),
 		mcp.WithString("workspace", mcp.Required(), mcp.Description("Workspace slug")),

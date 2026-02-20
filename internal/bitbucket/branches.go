@@ -27,10 +27,10 @@ func (c *Client) ListBranchesHandler(ctx context.Context, req mcp.CallToolReques
 	path := fmt.Sprintf("/repositories/%s/%s/refs/branches?pagelen=%d&page=%d",
 		QueryEscape(workspace), QueryEscape(repoSlug), pagelen, page)
 	if query != "" {
-		path += "&q=" + query
+		path += "&q=" + QueryEscape(query)
 	}
 	if sort != "" {
-		path += "&sort=" + sort
+		path += "&sort=" + QueryEscape(sort)
 	}
 
 	result, err := GetPaginated[Branch](c, path)

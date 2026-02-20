@@ -141,6 +141,8 @@ func (c *Client) UpdatePRCommentHandler(ctx context.Context, req mcp.CallToolReq
 }
 
 // DeletePRCommentHandler deletes a comment on a pull request.
+//
+//nolint:dupl // boilerplate handlers share parameter extraction
 func (c *Client) DeletePRCommentHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	workspace, err := req.RequireString("workspace")
 	if err != nil {
@@ -196,6 +198,8 @@ func (c *Client) ResolvePRCommentHandler(ctx context.Context, req mcp.CallToolRe
 }
 
 // UnresolvePRCommentHandler reopens a resolved comment thread.
+//
+//nolint:dupl // boilerplate handlers share parameter extraction
 func (c *Client) UnresolvePRCommentHandler(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	workspace, err := req.RequireString("workspace")
 	if err != nil {

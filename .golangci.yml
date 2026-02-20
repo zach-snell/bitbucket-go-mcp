@@ -1,28 +1,38 @@
-version: "2"
+run:
+  timeout: 5m
 
 linters:
   enable:
     - staticcheck
-    - govet
-    - errcheck
     - gosec
+    - govet
     - revive
+    - errcheck
     - ineffassign
     - unused
     - gocritic
-    - gofumpt
-    - misspell
+    - gocyclo
+    - gofmt
+    - goimports
 
 linters-settings:
+  gocyclo:
+    min-complexity: 20
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - hugeParam  # MCP handler signature requires value type
   revive:
     rules:
       - name: exported
         disabled: true
-  gosec:
-    excludes:
-      - G304
-      - G107
 
 issues:
-  exclude-dirs:
-    - vendor
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - gocyclo

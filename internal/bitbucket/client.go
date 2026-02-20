@@ -1,12 +1,12 @@
 package bitbucket
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 )
@@ -74,14 +74,19 @@ func (c *Client) ensureValidToken() error {
 }
 
 // do executes an HTTP request with auth headers.
-func (c *Client) do(method, path string, body io.Reader, contentType string) (*http.Response, error) {
+func (c *Client) do(method, path string, bodyData []byte, contentType string) (*http.Response, error) {
 	if err := c.ensureValidToken(); err != nil {
 		return nil, err
 	}
 
 	u := c.baseURL + path
 
-	req, err := http.NewRequest(method, u, body)
+	var bodyReader io.Reader
+	if bodyData != nil {
+		bodyReader = bytes.NewReader(bodyData)
+	}
+
+	req, err := http.NewRequest(method, u, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
@@ -112,7 +117,12 @@ func (c *Client) do(method, path string, body io.Reader, contentType string) (*h
 			return nil, fmt.Errorf("refreshing after 401: %w", err)
 		}
 
-		req2, err := http.NewRequest(method, u, body)
+		var retryBodyReader io.Reader
+		if bodyData != nil {
+			retryBodyReader = bytes.NewReader(bodyData)
+		}
+
+		req2, err := http.NewRequest(method, u, retryBodyReader)
 		if err != nil {
 			return nil, fmt.Errorf("creating retry request: %w", err)
 		}
@@ -148,37 +158,39 @@ func (c *Client) Get(path string) ([]byte, error) {
 }
 
 // GetRaw performs a GET and returns raw bytes (for file content).
-func (c *Client) GetRaw(path string) ([]byte, string, error) {
-	resp, err := c.do(http.MethodGet, path, nil, "")
-	if err != nil {
-		return nil, "", err
+func (c *Client) GetRaw(path string) (data []byte, contentType string, err error) {
+	resp, doErr := c.do(http.MethodGet, path, nil, "")
+	if doErr != nil {
+		return nil, "", doErr
 	}
 	defer resp.Body.Close()
 
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, "", fmt.Errorf("reading response: %w", err)
+	d, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		return nil, "", fmt.Errorf("reading response: %w", readErr)
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, "", fmt.Errorf("API error %d: %s", resp.StatusCode, string(data))
+		return nil, "", fmt.Errorf("API error %d: %s", resp.StatusCode, string(d))
 	}
 
-	return data, resp.Header.Get("Content-Type"), nil
+	return d, resp.Header.Get("Content-Type"), nil
 }
 
 // Post performs a POST request with a JSON body.
+//
+//nolint:dupl // post and put are structurally identical
 func (c *Client) Post(path string, body interface{}) ([]byte, error) {
-	var reader io.Reader
+	var bodyData []byte
 	if body != nil {
-		data, err := json.Marshal(body)
+		b, err := json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling body: %w", err)
 		}
-		reader = strings.NewReader(string(data))
+		bodyData = b
 	}
 
-	resp, err := c.do(http.MethodPost, path, reader, "application/json")
+	resp, err := c.do(http.MethodPost, path, bodyData, "application/json")
 	if err != nil {
 		return nil, err
 	}
@@ -197,17 +209,19 @@ func (c *Client) Post(path string, body interface{}) ([]byte, error) {
 }
 
 // Put performs a PUT request with a JSON body.
+//
+//nolint:dupl // post and put are structurally identical
 func (c *Client) Put(path string, body interface{}) ([]byte, error) {
-	var reader io.Reader
+	var bodyData []byte
 	if body != nil {
-		data, err := json.Marshal(body)
+		b, err := json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling body: %w", err)
 		}
-		reader = strings.NewReader(string(data))
+		bodyData = b
 	}
 
-	resp, err := c.do(http.MethodPut, path, reader, "application/json")
+	resp, err := c.do(http.MethodPut, path, bodyData, "application/json")
 	if err != nil {
 		return nil, err
 	}
