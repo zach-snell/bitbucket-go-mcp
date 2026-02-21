@@ -74,25 +74,55 @@ func hasRequiredScope(tokenScopes []string, required []string) bool {
 
 	for _, req := range required {
 		for _, ts := range tokenScopes {
-			// Exact match
+			// Exact match for standard OAuth formats
 			if ts == req {
 				return true
 			}
-			// Administrative scopes imply read/write scopes
-			if req == "repository" && (ts == "repository:write" || ts == "repository:admin") {
-				return true
-			}
-			if req == "repository:write" && ts == "repository:admin" {
-				return true
-			}
-			if req == "pullrequest" && ts == "pullrequest:write" {
-				return true
-			}
-			if req == "issue" && ts == "issue:write" {
-				return true
-			}
-			if req == "pipeline" && ts == "pipeline:write" {
-				return true
+
+			// API Tokens use the pattern `{action}:{resource}:bitbucket`
+			// We need to map our internal OAuth-style requirements to these strings.
+			switch req {
+			case "repository":
+				if ts == "repository:write" || ts == "repository:admin" ||
+					ts == "read:repository:bitbucket" || ts == "write:repository:bitbucket" || ts == "admin:repository:bitbucket" {
+					return true
+				}
+			case "repository:write":
+				if ts == "repository:admin" ||
+					ts == "write:repository:bitbucket" || ts == "admin:repository:bitbucket" {
+					return true
+				}
+			case "repository:admin":
+				if ts == "admin:repository:bitbucket" {
+					return true
+				}
+			case "pullrequest":
+				if ts == "pullrequest:write" ||
+					ts == "read:pullrequest:bitbucket" || ts == "write:pullrequest:bitbucket" {
+					return true
+				}
+			case "pullrequest:write":
+				if ts == "write:pullrequest:bitbucket" {
+					return true
+				}
+			case "pipeline":
+				if ts == "pipeline:write" ||
+					ts == "read:pipeline:bitbucket" || ts == "write:pipeline:bitbucket" {
+					return true
+				}
+			case "pipeline:write":
+				if ts == "write:pipeline:bitbucket" {
+					return true
+				}
+			case "issue":
+				if ts == "issue:write" ||
+					ts == "read:issue:bitbucket" || ts == "write:issue:bitbucket" {
+					return true
+				}
+			case "issue:write":
+				if ts == "write:issue:bitbucket" {
+					return true
+				}
 			}
 		}
 	}
