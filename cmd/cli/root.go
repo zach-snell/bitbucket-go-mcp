@@ -9,8 +9,9 @@ import (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "bbkt",
-	Short: "A unified CLI and MCP server for Bitbucket Cloud",
+	Use:     "bbkt",
+	Version: "1.0.0",
+	Short:   "A unified CLI and MCP server for Bitbucket Cloud",
 	Long: `bbkt is a complete command-line interface and Model Context Protocol
 server for Bitbucket Cloud.
 
