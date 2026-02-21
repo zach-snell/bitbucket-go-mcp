@@ -25,7 +25,7 @@ func NewFromCredentials(creds *bitbucket.Credentials) *mcp.Server {
 func newServer(client *bitbucket.Client) *mcp.Server {
 	s := mcp.NewServer(
 		&mcp.Implementation{
-			Name:    "bitbucket-mcp",
+			Name:    "bbkt",
 			Version: "1.0.0",
 		},
 		nil,
