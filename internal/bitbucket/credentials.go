@@ -63,7 +63,7 @@ func CredentialsPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("getting home dir: %w", err)
 	}
-	return filepath.Join(home, ".config", "bitbucket-mcp", "credentials.json"), nil
+	return filepath.Join(home, ".config", "bbkt", "credentials.json"), nil
 }
 
 // SaveCredentials persists credentials to disk with secure permissions.
