@@ -131,4 +131,4 @@ golangci-lint run ./...
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Apache 2.0 License](LICENSE).
