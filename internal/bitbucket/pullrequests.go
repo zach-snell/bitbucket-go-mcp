@@ -79,6 +79,9 @@ func (c *Client) CreatePullRequest(args CreatePullRequestArgs) (*PullRequest, er
 		Title: args.Title,
 		Source: PREndpoint{
 			Branch: &Branch{Name: args.SourceBranch},
+			Repository: &MinRepo{
+				FullName: fmt.Sprintf("%s/%s", args.Workspace, args.RepoSlug),
+			},
 		},
 		Description:       args.Description,
 		CloseSourceBranch: args.CloseSourceBranch,
@@ -88,6 +91,9 @@ func (c *Client) CreatePullRequest(args CreatePullRequestArgs) (*PullRequest, er
 	if args.DestinationBranch != "" {
 		body.Destination = PREndpoint{
 			Branch: &Branch{Name: args.DestinationBranch},
+			Repository: &MinRepo{
+				FullName: fmt.Sprintf("%s/%s", args.Workspace, args.RepoSlug),
+			},
 		}
 	}
 

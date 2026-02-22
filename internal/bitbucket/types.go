@@ -114,9 +114,9 @@ type PullRequest struct {
 
 // PREndpoint represents a PR source or destination.
 type PREndpoint struct {
-	Branch     *Branch  `json:"branch"`
-	Commit     *Commit  `json:"commit"`
-	Repository *MinRepo `json:"repository"`
+	Branch     *Branch  `json:"branch,omitempty"`
+	Commit     *Commit  `json:"commit,omitempty"`
+	Repository *MinRepo `json:"repository,omitempty"`
 }
 
 // Participant represents a PR participant.
@@ -145,8 +145,8 @@ type PRComment struct {
 // Content represents rich content with raw/markup/html.
 type Content struct {
 	Raw    string `json:"raw"`
-	Markup string `json:"markup"`
-	HTML   string `json:"html"`
+	Markup string `json:"markup,omitempty"`
+	HTML   string `json:"html,omitempty"`
 }
 
 // Inline represents inline comment location.
