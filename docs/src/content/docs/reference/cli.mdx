@@ -1,0 +1,138 @@
+---
+title: CLI Reference
+description: Complete reference for all bbkt standard CLI commands.
+---
+
+The `bbkt` CLI provides an interactive, terminal-native experience for managing Bitbucket workspaces, repositories, pipelines, issues, and pull requests.
+
+## Core Commands
+
+### `bbkt profile`
+
+Manage local authentication profiles and APIs tokens. 
+
+```bash
+# List all active credentials and their scopes
+bbkt profile list
+
+# Delete a profile from the local keychain
+bbkt profile delete <name>
+
+# Force refresh the cached accessible workspaces list
+bbkt profile refresh
+```
+
+### `bbkt workspaces`
+
+Interact with Bitbucket Workspaces.
+
+```bash
+# List all accessible workspaces
+bbkt workspaces list
+
+# Get details about a specific workspace
+bbkt workspaces get [workspace_slug]
+```
+
+### `bbkt repos`
+
+Manage Git repositories.
+
+```bash
+# List all repositories in a workspace
+bbkt repos list [workspace_slug]
+
+# Get details for a specific repository
+bbkt repos get [workspace_slug] [repo_slug]
+
+# Create a new repository
+bbkt repos create [workspace_slug]
+
+# Delete a repository
+bbkt repos delete [workspace_slug] [repo_slug]
+```
+
+### `bbkt prs`
+
+Manage Pull Requests.
+
+```bash
+# List open pull requests
+bbkt prs list [workspace_slug] [repo_slug]
+
+# Get a specific pull request
+bbkt prs get [workspace_slug] [repo_slug] [pr_id]
+
+# Create a new pull request (prompts for title/branch)
+bbkt prs create [workspace_slug] [repo_slug]
+
+# Approve or decline a pull request
+bbkt prs approve [workspace_slug] [repo_slug] [pr_id]
+bbkt prs decline [workspace_slug] [repo_slug] [pr_id]
+
+# Merge a pull request
+bbkt prs merge [workspace_slug] [repo_slug] [pr_id]
+```
+
+#### `bbkt prs comments`
+
+Manage comments on Pull Requests.
+
+```bash
+# List comments on a PR
+bbkt prs comments list [workspace_slug] [repo_slug] [pr_id]
+
+# Add a new comment
+bbkt prs comments add [workspace_slug] [repo_slug] [pr_id]
+
+# Resolve an existing comment thread
+bbkt prs comments resolve [workspace_slug] [repo_slug] [pr_id] [comment_id]
+```
+
+### `bbkt pipelines`
+
+Trigger and monitor CI/CD pipelines.
+
+```bash
+# List recent pipeline runs
+bbkt pipelines list [workspace_slug] [repo_slug]
+
+# Trigger a new pipeline run manually
+bbkt pipelines trigger [workspace_slug] [repo_slug]
+
+# Stop a running pipeline
+bbkt pipelines stop [workspace_slug] [repo_slug] [pipeline_uuid]
+
+# Stream live step logs to stdout
+bbkt pipelines logs [workspace_slug] [repo_slug] [pipeline_uuid] [step_uuid]
+```
+
+### `bbkt issues`
+
+Interact with the repository Issue Tracker.
+
+```bash
+# List open issues
+bbkt issues list [workspace_slug] [repo_slug]
+
+# Create a new issue
+bbkt issues create [workspace_slug] [repo_slug]
+```
+
+### `bbkt source`
+
+Directly interact with remote source code without a local Git clone.
+
+```bash
+# View file contents
+bbkt source read [workspace_slug] [repo_slug] [filepath]
+
+# Browse repository tree structure
+bbkt source tree [workspace_slug] [repo_slug]
+
+# Search codebase natively
+bbkt source search [workspace_slug] [repo_slug]
+
+# Commit a new file or modification directly
+bbkt source write [workspace_slug] [repo_slug] [filepath]
+```

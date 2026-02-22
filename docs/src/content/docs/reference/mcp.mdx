@@ -1,0 +1,56 @@
+---
+title: MCP Tools Reference
+description: Complete reference for all bbkt Model Context Protocol tools.
+---
+
+The `bbkt` MCP server exposes 9 core, multiplexed tools. Every tool relies on an `action` enum property to select discrete API operations.
+
+## Security & Introspection
+
+**Token Introspection:** The `bbkt` server dynamically evaluates the native `X-OAuth-Scopes` HTTP header returned by the Atlassian API during startup. If your App Password or API Token lacks a required scope (such as `write:pipeline`), `bbkt` will completely exclude standard write operations (like `trigger`, `stop`) from the LLM prompt context to prevent hallucinated operations.
+
+**Explicit Denial:** You can forcefully deny the LLM access to any individual tool (e.g., `delete_repository`) via the `BITBUCKET_DISABLED_TOOLS` environment variable.
+
+## Multiplexed Tools
+
+### `manage_workspaces`
+Get and list Bitbucket workspaces you have access to.
+- **Actions:** `list`, `get`
+
+### `manage_repositories`
+Manage repositories across your workspaces.
+- **Actions:** `list`, `get`, `create`, `delete`
+- **Optional Params:** `role`, `language`, `is_private`, `project_key`
+
+### `manage_refs`
+Interact with repository branches and tags.
+- **Actions:** `list-branches`, `create-branch`, `delete-branch`, `list-tags`, `create-tag`
+- **Required Params:** `name`, `target` (for creations)
+
+### `manage_commits`
+Explore commit history, diffs, and diffstats.
+- **Actions:** `list`, `get`, `diff`, `diffstat`
+- **Optional Params:** `path` (filter by directory)
+
+### `manage_source`
+Interact with source code files and directory graphs directly through the Bitbucket API, bypassing local Git clones.
+- **Actions:** `read_file`, `list_directory`, `get_history`, `search`, `write_file`, `delete_file`
+- **Required Params:** `path`, `content` (for writing)
+
+### `manage_pull_requests`
+End-to-end pull request management integration.
+- **Actions:** `list`, `get`, `create`, `update`, `merge`, `approve`, `unapprove`, `decline`, `get-diff`, `get-diffstat`, `get-commits`
+- **Optional Params:** `source_branch`, `destination_branch`, `merge_strategy`, `draft` 
+
+### `manage_pr_comments`
+Interact directly with your team inside active pull requests.
+- **Actions:** `list`, `create`, `update`, `delete`, `resolve`, `unresolve`
+- **Optional Params:** `line_from`, `line_to`, `file_path` (for inline comments)
+
+### `manage_pipelines`
+Trigger and monitor standard Bitbucket pipelines integration tests and deployments.
+- **Actions:** `list`, `get`, `trigger`, `stop`, `list-steps`, `get-step-log`
+
+### `manage_issues`
+Interact with the repository Issue Tracker.
+- **Actions:** `list`, `get`, `create`, `update`

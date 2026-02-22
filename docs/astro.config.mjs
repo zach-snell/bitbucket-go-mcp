@@ -26,6 +26,13 @@ export default defineConfig({
 						{ label: 'Configuration', slug: 'getting-started/configuration' },
 					],
 				},
+				{
+					label: 'Reference',
+					items: [
+						{ label: 'CLI Commands', slug: 'reference/cli' },
+						{ label: 'MCP Tools', slug: 'reference/mcp' },
+					],
+				},
 			],
 		}),
 	],
