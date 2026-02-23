@@ -1,8 +1,14 @@
 # bbkt (Bitbucket CLI & MCP Server)
 
 [![Documentation](https://img.shields.io/badge/docs-reference-blue)](https://zach-snell.github.io/bbkt/)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zach-snell/bbkt)](https://goreportcard.com/report/github.com/zach-snell/bbkt)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 A complete command-line interface and Model Context Protocol (MCP) server written in Go that provides programmatic integration with Bitbucket workspaces and repositories.
+
+<p align="center">
+  <img src="demo.gif" alt="bbkt CLI demo" width="700" />
+</p>
 
 ## Features
 
